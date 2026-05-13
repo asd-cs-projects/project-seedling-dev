@@ -194,7 +194,8 @@ export const PDFUploader = ({ testId, onPDFsChange, onQuestionsCreated }: PDFUpl
             passage_code: slug,
             title: uniquePassages.get(slug)!.title,
             content: uniquePassages.get(slug)!.content || uniquePassages.get(slug)!.title,
-            passage_type: 'text',
+            passage_type: passageMedia[slug] ? 'image' : 'text',
+            media_url: passageMedia[slug] || null,
           }));
 
         if (toInsert.length > 0) {
@@ -204,6 +205,18 @@ export const PDFUploader = ({ testId, onPDFsChange, onQuestionsCreated }: PDFUpl
             .select('id, passage_code');
           if (pErr) throw pErr;
           inserted?.forEach((p) => slugToUuid.set(p.passage_code, p.id));
+        }
+
+        // For passages that already existed but the teacher just attached an image to,
+        // patch the media_url onto the existing row.
+        for (const slug of slugs) {
+          if (passageMedia[slug] && slugToUuid.has(slug)) {
+            const passageId = slugToUuid.get(slug)!;
+            await supabase
+              .from('passages')
+              .update({ media_url: passageMedia[slug], passage_type: 'image' })
+              .eq('id', passageId);
+          }
         }
       }
 
