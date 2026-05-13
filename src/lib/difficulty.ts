@@ -23,11 +23,37 @@ export const getDifficultyColor = (diff: string) => {
   }
 };
 
-/** Map a 0–100 practice score to an entry difficulty using 5-tier bands. */
+/**
+ * Map a 0–100 practice score to the student's ENTRY module tier.
+ * Practice itself is never a real module; entry tier is one of basic/easy/medium/hard.
+ *   80–100% → hard
+ *   50–80%  → medium
+ *   20–50%  → easy
+ *   0–20%   → basic
+ */
 export const scoreToTier = (score: number): DifficultyTier => {
-  if (score >= 100) return 'hard';      // 100%+
-  if (score >= 80)  return 'medium';    // 80–100%
-  if (score >= 50)  return 'easy';      // 50–80%
-  if (score >= 20)  return 'basic';     // 20–50%
-  return 'practice';                    // 0–20% — practice (kept here so adaptive can step up)
+  if (score >= 80) return 'hard';
+  if (score >= 50) return 'medium';
+  if (score >= 20) return 'easy';
+  return 'basic';
+};
+
+/**
+ * Adaptive shift between modules based on the just-finished module score.
+ *   80–100% → +2
+ *   50–80%  → +1
+ *   20–50%  → -1
+ *   0–20%   → -2
+ * Clamped to [basic, hard] (never returns 'practice').
+ */
+export const shiftTier = (current: DifficultyTier, score: number): DifficultyTier => {
+  const ladder: DifficultyTier[] = ['basic', 'easy', 'medium', 'hard'];
+  let delta = 0;
+  if (score >= 80) delta = 2;
+  else if (score >= 50) delta = 1;
+  else if (score >= 20) delta = -1;
+  else delta = -2;
+  const idx = ladder.indexOf(current);
+  if (idx < 0) return 'easy';
+  return ladder[Math.max(0, Math.min(ladder.length - 1, idx + delta))];
 };
