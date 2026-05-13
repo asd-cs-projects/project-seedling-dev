@@ -46,6 +46,10 @@ export const PDFUploader = ({ testId, onPDFsChange, onQuestionsCreated }: PDFUpl
   const [extractedImages, setExtractedImages] = useState<string[]>([]);
   // Default difficulty applied to the whole PDF (and to each newly-extracted question).
   const [defaultDifficulty, setDefaultDifficulty] = useState<string>('easy');
+  // Per-passage (module) material — image uploaded by teacher and applied to every
+  // question inside that passage. Keyed by the parser's passage_id slug.
+  const [passageMedia, setPassageMedia] = useState<Record<string, string>>({});
+  const [uploadingPassage, setUploadingPassage] = useState<string | null>(null);
 
   const handlePDFUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -294,6 +298,31 @@ export const PDFUploader = ({ testId, onPDFsChange, onQuestionsCreated }: PDFUpl
   const applyDifficultyToAll = (difficulty: string) => {
     setDefaultDifficulty(difficulty);
     setExtractedQuestions(prev => prev.map(q => ({ ...q, difficulty })));
+  };
+
+  /** Upload an image for an entire module/passage. Stored on the passage row at save time. */
+  const handlePassageMediaUpload = async (
+    passageKey: string,
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingPassage(passageKey);
+    try {
+      const ext = file.name.split('.').pop();
+      const path = `${testId}/passages/${crypto.randomUUID()}.${ext}`;
+      const { error } = await supabase.storage
+        .from('test-files')
+        .upload(path, file, { cacheControl: '3600', upsert: false });
+      if (error) throw error;
+      setPassageMedia(prev => ({ ...prev, [passageKey]: path }));
+      toast({ title: 'Uploaded', description: 'Module image attached' });
+    } catch (err: any) {
+      toast({ title: 'Upload failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setUploadingPassage(null);
+      if (e.target) e.target.value = '';
+    }
   };
 
   // Group extracted questions by passage for UI rendering
