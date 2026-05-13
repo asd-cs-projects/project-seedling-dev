@@ -6,6 +6,7 @@ import { CheckCircle, XCircle, BookOpen, ChevronDown, ChevronUp, Lightbulb } fro
 import { supabase } from '@/integrations/supabase/client';
 import { MediaDisplay } from '@/components/ui/media-display';
 import { getStoredAnswer } from '@/lib/utils';
+import { renderQuestionText } from '@/lib/renderQuestionText';
 
 interface Question {
   id: string;
@@ -185,7 +186,7 @@ export const QuestionReview = ({ testId, answers, questions: providedQuestions, 
             )}
 
             {/* Question Text */}
-            <p className="mb-4 text-foreground">{question.question_text}</p>
+            <p className="mb-4 text-foreground">{renderQuestionText(question.question_text)}</p>
 
             {/* Options */}
             <div className="space-y-2">
@@ -217,7 +218,7 @@ export const QuestionReview = ({ testId, answers, questions: providedQuestions, 
                       }`}>
                         {label}
                       </span>
-                      <span className={isCorrectAnswer ? 'font-medium' : ''}>{option}</span>
+                      <span className={isCorrectAnswer ? 'font-medium' : ''}>{renderQuestionText(option)}</span>
                       {isCorrectAnswer && (
                         <Badge className="ml-auto bg-success text-success-foreground text-xs">Correct</Badge>
                       )}
