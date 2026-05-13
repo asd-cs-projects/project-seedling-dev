@@ -532,6 +532,49 @@ export const PDFUploader = ({ testId, onPDFsChange, onQuestionsCreated }: PDFUpl
                           </SelectContent>
                         </Select>
                       </div>
+                      {/* Per-module material upload (image applied to whole passage) */}
+                      {passageKey && (
+                        <div className="mb-3 flex items-center gap-2 p-2 rounded-lg bg-background/60 border border-dashed border-border">
+                          <input
+                            id={`passage-media-${passageKey}`}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => handlePassageMediaUpload(passageKey, e)}
+                          />
+                          <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-xs flex-1 truncate">
+                            {passageMedia[passageKey]
+                              ? `Module image attached: ${passageMedia[passageKey].split('/').pop()}`
+                              : 'Attach an image as material for this whole module (optional)'}
+                          </span>
+                          {passageMedia[passageKey] && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 text-xs"
+                              onClick={() => setPassageMedia(prev => {
+                                const n = { ...prev }; delete n[passageKey]; return n;
+                              })}
+                            >
+                              Remove
+                            </Button>
+                          )}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs"
+                            disabled={uploadingPassage === passageKey}
+                            onClick={() => document.getElementById(`passage-media-${passageKey}`)?.click()}
+                          >
+                            {uploadingPassage === passageKey ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (passageMedia[passageKey] ? 'Replace' : 'Upload')}
+                          </Button>
+                        </div>
+                      )}
                       <div className="space-y-2">
                         {group.questions.map(({ q, idx }) => (
                           <div key={idx} className="flex items-start justify-between gap-3 p-2 rounded-lg bg-background/60">
