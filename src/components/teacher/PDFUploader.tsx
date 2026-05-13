@@ -29,6 +29,9 @@ interface ParsedQuestion {
   order_index: number;
   media_url?: string;
   media_type?: string;
+  passage_id?: string | null;   // slug from parser
+  passage_title?: string | null;
+  passage_text?: string | null;
 }
 
 export const PDFUploader = ({ testId, onPDFsChange, onQuestionsCreated }: PDFUploaderProps) => {
@@ -41,6 +44,8 @@ export const PDFUploader = ({ testId, onPDFsChange, onQuestionsCreated }: PDFUpl
   const [extractedQuestions, setExtractedQuestions] = useState<ParsedQuestion[]>([]);
   const [questionsCreated, setQuestionsCreated] = useState(false);
   const [extractedImages, setExtractedImages] = useState<string[]>([]);
+  // Default difficulty applied to the whole PDF (and to each newly-extracted question).
+  const [defaultDifficulty, setDefaultDifficulty] = useState<string>('easy');
 
   const handlePDFUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -115,7 +120,7 @@ export const PDFUploader = ({ testId, onPDFsChange, onQuestionsCreated }: PDFUpl
       const { data: parseData, error: parseError } = await supabase.functions.invoke('parse-questions', {
         body: { 
           extractedText: ocrData.text,
-          difficulty: 'easy', // Default difficulty, user can change per-question
+          difficulty: defaultDifficulty,
           images: ocrData.images || []
         }
       });
@@ -123,10 +128,13 @@ export const PDFUploader = ({ testId, onPDFsChange, onQuestionsCreated }: PDFUpl
       if (parseError) throw parseError;
 
       if (parseData?.questions && parseData.questions.length > 0) {
-        setExtractedQuestions(parseData.questions);
+        // Force every parsed question to the chosen default; teacher can still override below.
+        setExtractedQuestions(
+          parseData.questions.map((q: ParsedQuestion) => ({ ...q, difficulty: defaultDifficulty }))
+        );
         toast({ 
           title: 'Questions Extracted!', 
-          description: `Found ${parseData.questions.length} questions. Select difficulty level and save.`
+          description: `Found ${parseData.questions.length} questions at "${defaultDifficulty}". Adjust per passage or per question, then save.`
         });
       } else {
         toast({ 
@@ -151,6 +159,50 @@ export const PDFUploader = ({ testId, onPDFsChange, onQuestionsCreated }: PDFUpl
     if (extractedQuestions.length === 0) return;
 
     try {
+      // 1) Create passage rows for any unique passage_id slugs returned by the parser
+      //    so each "module" in the PDF is persisted and questions can FK to it.
+      const slugToUuid = new Map<string, string>();
+      const uniquePassages = new Map<string, { title: string; content: string }>();
+      extractedQuestions.forEach((q) => {
+        if (q.passage_id && !uniquePassages.has(q.passage_id)) {
+          uniquePassages.set(q.passage_id, {
+            title: q.passage_title || q.passage_id,
+            content: q.passage_text || '',
+          });
+        }
+      });
+
+      if (uniquePassages.size > 0) {
+        // De-dupe against existing passages on this test by passage_code (slug)
+        const slugs = Array.from(uniquePassages.keys());
+        const { data: existingPassages } = await supabase
+          .from('passages')
+          .select('id, passage_code')
+          .eq('test_id', testId)
+          .in('passage_code', slugs);
+
+        existingPassages?.forEach((p) => slugToUuid.set(p.passage_code, p.id));
+
+        const toInsert = slugs
+          .filter((slug) => !slugToUuid.has(slug))
+          .map((slug) => ({
+            test_id: testId,
+            passage_code: slug,
+            title: uniquePassages.get(slug)!.title,
+            content: uniquePassages.get(slug)!.content || uniquePassages.get(slug)!.title,
+            passage_type: 'text',
+          }));
+
+        if (toInsert.length > 0) {
+          const { data: inserted, error: pErr } = await supabase
+            .from('passages')
+            .insert(toInsert)
+            .select('id, passage_code');
+          if (pErr) throw pErr;
+          inserted?.forEach((p) => slugToUuid.set(p.passage_code, p.id));
+        }
+      }
+
       // Get count of existing questions for this test
       const { count: existingCount } = await supabase
         .from('questions')
@@ -160,13 +212,14 @@ export const PDFUploader = ({ testId, onPDFsChange, onQuestionsCreated }: PDFUpl
       let orderOffset = existingCount || 0;
 
       // Count questions by difficulty
-      const difficultyCounts = { practice: 0, easy: 0, medium: 0, hard: 0 };
+      const difficultyCounts: Record<string, number> = { practice: 0, basic: 0, easy: 0, medium: 0, hard: 0 };
 
       const newQuestions = extractedQuestions.map((q: ParsedQuestion, idx: number) => {
-        const diff = q.difficulty || 'easy';
-        difficultyCounts[diff as keyof typeof difficultyCounts]++;
+        const diff = q.difficulty || defaultDifficulty;
+        difficultyCounts[diff] = (difficultyCounts[diff] || 0) + 1;
         return {
           test_id: testId,
+          passage_id: q.passage_id ? slugToUuid.get(q.passage_id) ?? null : null,
           question_type: 'mcq',
           difficulty: diff,
           question_text: q.question_text,
@@ -230,6 +283,35 @@ export const PDFUploader = ({ testId, onPDFsChange, onQuestionsCreated }: PDFUpl
     );
   };
 
+  /** Bulk-set difficulty for every question that belongs to a given passage slug (or standalone group when slug is null). */
+  const setPassageDifficulty = (passageId: string | null, difficulty: string) => {
+    setExtractedQuestions(prev =>
+      prev.map(q => ((q.passage_id || null) === passageId ? { ...q, difficulty } : q))
+    );
+  };
+
+  /** Apply a single difficulty to ALL extracted questions (whole-PDF override). */
+  const applyDifficultyToAll = (difficulty: string) => {
+    setDefaultDifficulty(difficulty);
+    setExtractedQuestions(prev => prev.map(q => ({ ...q, difficulty })));
+  };
+
+  // Group extracted questions by passage for UI rendering
+  const groupedExtracted = (() => {
+    const map = new Map<string | null, { title: string; questions: { q: ParsedQuestion; idx: number }[] }>();
+    extractedQuestions.forEach((q, idx) => {
+      const key = q.passage_id || null;
+      if (!map.has(key)) {
+        map.set(key, {
+          title: q.passage_title || (key ? key : 'Standalone questions'),
+          questions: [],
+        });
+      }
+      map.get(key)!.questions.push({ q, idx });
+    });
+    return Array.from(map.entries());
+  })();
+
   return (
     <div className="space-y-6">
       <Card className="cloud-bubble p-6">
@@ -243,6 +325,34 @@ export const PDFUploader = ({ testId, onPDFsChange, onQuestionsCreated }: PDFUpl
 
         {/* Single Upload Area */}
         <div className="space-y-4">
+          {/* Default difficulty for the whole PDF */}
+          <div className="flex items-center gap-3 p-4 rounded-xl bg-muted/30 border border-border">
+            <div className="flex-1">
+              <p className="text-sm font-medium">Default difficulty for this PDF</p>
+              <p className="text-xs text-muted-foreground">
+                Every extracted question (and passage/module) starts at this level. You can override per passage or per question afterwards.
+              </p>
+            </div>
+            <Select
+              value={defaultDifficulty}
+              onValueChange={(v) => {
+                if (extractedQuestions.length > 0) applyDifficultyToAll(v);
+                else setDefaultDifficulty(v);
+              }}
+            >
+              <SelectTrigger className="w-32 h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="practice">Practice</SelectItem>
+                <SelectItem value="basic">Basic</SelectItem>
+                <SelectItem value="easy">Easy</SelectItem>
+                <SelectItem value="medium">Medium</SelectItem>
+                <SelectItem value="hard">Hard</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className={`p-6 border-2 border-dashed rounded-2xl text-center transition-colors ${pdfUrl ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}`}>
             <input
               type="file"
