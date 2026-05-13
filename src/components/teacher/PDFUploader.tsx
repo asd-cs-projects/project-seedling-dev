@@ -456,35 +456,73 @@ export const PDFUploader = ({ testId, onPDFsChange, onQuestionsCreated }: PDFUpl
                 </div>
               </div>
 
-              <div className="max-h-[400px] overflow-y-auto space-y-3 pr-2">
-                {extractedQuestions.map((q, idx) => (
-                  <div key={idx} className="p-4 bg-muted/30 rounded-xl">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1">
-                        <p className="text-sm font-medium mb-1">Q{idx + 1}: {q.question_text.substring(0, 100)}...</p>
-                        <p className="text-xs text-muted-foreground">
-                          {q.options.length} options • Answer: {q.correct_answer}
-                          {q.media_url && ' • Has image'}
-                        </p>
+              <div className="max-h-[480px] overflow-y-auto space-y-4 pr-2">
+                {groupedExtracted.map(([passageKey, group]) => {
+                  // Each passage = one module. Show a single difficulty selector that
+                  // bulk-applies to every question inside this module.
+                  const groupDifficulty = group.questions[0]?.q.difficulty || defaultDifficulty;
+                  const allSame = group.questions.every(({ q }) => q.difficulty === groupDifficulty);
+                  return (
+                    <div key={passageKey ?? 'standalone'} className="p-4 bg-muted/20 rounded-xl border border-border">
+                      <div className="flex items-center justify-between gap-4 mb-3">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold truncate">
+                            {passageKey ? `Module: ${group.title}` : group.title}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {group.questions.length} question{group.questions.length === 1 ? '' : 's'}
+                          </p>
+                        </div>
+                        <Select
+                          value={allSame ? groupDifficulty : 'mixed'}
+                          onValueChange={(v) => setPassageDifficulty(passageKey, v)}
+                        >
+                          <SelectTrigger className="w-32 h-9 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {!allSame && <SelectItem value="mixed" disabled>Mixed</SelectItem>}
+                            <SelectItem value="practice">Practice</SelectItem>
+                            <SelectItem value="basic">Basic</SelectItem>
+                            <SelectItem value="easy">Easy</SelectItem>
+                            <SelectItem value="medium">Medium</SelectItem>
+                            <SelectItem value="hard">Hard</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
-                      <Select 
-                        value={q.difficulty || 'easy'} 
-                        onValueChange={(v) => updateQuestionDifficulty(idx, v)}
-                      >
-                        <SelectTrigger className="w-24 h-8 text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="practice">Practice</SelectItem>
-                          <SelectItem value="basic">Basic</SelectItem>
-                          <SelectItem value="easy">Easy</SelectItem>
-                          <SelectItem value="medium">Medium</SelectItem>
-                          <SelectItem value="hard">Hard</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <div className="space-y-2">
+                        {group.questions.map(({ q, idx }) => (
+                          <div key={idx} className="flex items-start justify-between gap-3 p-2 rounded-lg bg-background/60">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium truncate">
+                                Q{idx + 1}: {q.question_text.substring(0, 110)}{q.question_text.length > 110 ? '…' : ''}
+                              </p>
+                              <p className="text-[11px] text-muted-foreground">
+                                {q.options.length} options • Answer: {q.correct_answer}
+                                {q.media_url && ' • Has image'}
+                              </p>
+                            </div>
+                            <Select
+                              value={q.difficulty || defaultDifficulty}
+                              onValueChange={(v) => updateQuestionDifficulty(idx, v)}
+                            >
+                              <SelectTrigger className="w-24 h-7 text-[11px]">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="practice">Practice</SelectItem>
+                                <SelectItem value="basic">Basic</SelectItem>
+                                <SelectItem value="easy">Easy</SelectItem>
+                                <SelectItem value="medium">Medium</SelectItem>
+                                <SelectItem value="hard">Hard</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               <Button
