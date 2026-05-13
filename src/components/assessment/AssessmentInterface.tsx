@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { getStoredAnswer } from "@/lib/utils";
+import { renderQuestionText } from "@/lib/renderQuestionText";
 
 interface Question {
   id: string;
@@ -682,10 +683,11 @@ const AssessmentInterface = () => {
 
     const timeSpent = (testData?.duration_minutes * 60 || 3600) - timeRemaining;
 
-    // Server-side scoring — students never see correct_answer client-side
-    const { data: scoreData, error: scoreErr } = await (supabase as any).rpc('score_submission', {
+    // Server-side scoring across ALL non-practice questions the student attempted
+    // (every adaptive module — basic / easy / medium / hard — counts toward the
+    // final score). Practice answers are explicitly excluded server-side.
+    const { data: scoreData, error: scoreErr } = await (supabase as any).rpc('score_full_submission', {
       _test_id: testId,
-      _difficulty: assignedLevel,
       _answers: answers,
     });
     if (scoreErr) {
@@ -969,7 +971,7 @@ const AssessmentInterface = () => {
                   Question {currentQuestionIndex + 1} of {questions.length}
                 </p>
                 <h4 className="font-semibold text-lg text-foreground mb-2">
-                  {currentQuestion.question_text}
+                  {renderQuestionText(currentQuestion.question_text)}
                 </h4>
                 <p className="text-xs text-muted-foreground">
                   [{currentQuestion.marks} mark{currentQuestion.marks !== 1 ? 's' : ''}]
@@ -1008,7 +1010,7 @@ const AssessmentInterface = () => {
                             }`}>
                               <span className="text-sm font-medium">{letter}</span>
                             </div>
-                            <span className="text-foreground">{option}</span>
+                            <span className="text-foreground">{renderQuestionText(option)}</span>
                           </div>
                         </div>
                       );

@@ -46,6 +46,10 @@ export const PDFUploader = ({ testId, onPDFsChange, onQuestionsCreated }: PDFUpl
   const [extractedImages, setExtractedImages] = useState<string[]>([]);
   // Default difficulty applied to the whole PDF (and to each newly-extracted question).
   const [defaultDifficulty, setDefaultDifficulty] = useState<string>('easy');
+  // Per-passage (module) material — image uploaded by teacher and applied to every
+  // question inside that passage. Keyed by the parser's passage_id slug.
+  const [passageMedia, setPassageMedia] = useState<Record<string, string>>({});
+  const [uploadingPassage, setUploadingPassage] = useState<string | null>(null);
 
   const handlePDFUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -190,7 +194,8 @@ export const PDFUploader = ({ testId, onPDFsChange, onQuestionsCreated }: PDFUpl
             passage_code: slug,
             title: uniquePassages.get(slug)!.title,
             content: uniquePassages.get(slug)!.content || uniquePassages.get(slug)!.title,
-            passage_type: 'text',
+            passage_type: passageMedia[slug] ? 'image' : 'text',
+            media_url: passageMedia[slug] || null,
           }));
 
         if (toInsert.length > 0) {
@@ -200,6 +205,18 @@ export const PDFUploader = ({ testId, onPDFsChange, onQuestionsCreated }: PDFUpl
             .select('id, passage_code');
           if (pErr) throw pErr;
           inserted?.forEach((p) => slugToUuid.set(p.passage_code, p.id));
+        }
+
+        // For passages that already existed but the teacher just attached an image to,
+        // patch the media_url onto the existing row.
+        for (const slug of slugs) {
+          if (passageMedia[slug] && slugToUuid.has(slug)) {
+            const passageId = slugToUuid.get(slug)!;
+            await supabase
+              .from('passages')
+              .update({ media_url: passageMedia[slug], passage_type: 'image' })
+              .eq('id', passageId);
+          }
         }
       }
 
@@ -294,6 +311,31 @@ export const PDFUploader = ({ testId, onPDFsChange, onQuestionsCreated }: PDFUpl
   const applyDifficultyToAll = (difficulty: string) => {
     setDefaultDifficulty(difficulty);
     setExtractedQuestions(prev => prev.map(q => ({ ...q, difficulty })));
+  };
+
+  /** Upload an image for an entire module/passage. Stored on the passage row at save time. */
+  const handlePassageMediaUpload = async (
+    passageKey: string,
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingPassage(passageKey);
+    try {
+      const ext = file.name.split('.').pop();
+      const path = `${testId}/passages/${crypto.randomUUID()}.${ext}`;
+      const { error } = await supabase.storage
+        .from('test-files')
+        .upload(path, file, { cacheControl: '3600', upsert: false });
+      if (error) throw error;
+      setPassageMedia(prev => ({ ...prev, [passageKey]: path }));
+      toast({ title: 'Uploaded', description: 'Module image attached' });
+    } catch (err: any) {
+      toast({ title: 'Upload failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setUploadingPassage(null);
+      if (e.target) e.target.value = '';
+    }
   };
 
   // Group extracted questions by passage for UI rendering
@@ -490,6 +532,49 @@ export const PDFUploader = ({ testId, onPDFsChange, onQuestionsCreated }: PDFUpl
                           </SelectContent>
                         </Select>
                       </div>
+                      {/* Per-module material upload (image applied to whole passage) */}
+                      {passageKey && (
+                        <div className="mb-3 flex items-center gap-2 p-2 rounded-lg bg-background/60 border border-dashed border-border">
+                          <input
+                            id={`passage-media-${passageKey}`}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => handlePassageMediaUpload(passageKey, e)}
+                          />
+                          <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-xs flex-1 truncate">
+                            {passageMedia[passageKey]
+                              ? `Module image attached: ${passageMedia[passageKey].split('/').pop()}`
+                              : 'Attach an image as material for this whole module (optional)'}
+                          </span>
+                          {passageMedia[passageKey] && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 text-xs"
+                              onClick={() => setPassageMedia(prev => {
+                                const n = { ...prev }; delete n[passageKey]; return n;
+                              })}
+                            >
+                              Remove
+                            </Button>
+                          )}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs"
+                            disabled={uploadingPassage === passageKey}
+                            onClick={() => document.getElementById(`passage-media-${passageKey}`)?.click()}
+                          >
+                            {uploadingPassage === passageKey ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (passageMedia[passageKey] ? 'Replace' : 'Upload')}
+                          </Button>
+                        </div>
+                      )}
                       <div className="space-y-2">
                         {group.questions.map(({ q, idx }) => (
                           <div key={idx} className="flex items-start justify-between gap-3 p-2 rounded-lg bg-background/60">

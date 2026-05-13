@@ -6,6 +6,7 @@ import { CheckCircle, XCircle, BookOpen, ChevronDown, ChevronUp, Lightbulb } fro
 import { supabase } from '@/integrations/supabase/client';
 import { MediaDisplay } from '@/components/ui/media-display';
 import { getStoredAnswer } from '@/lib/utils';
+import { renderQuestionText } from '@/lib/renderQuestionText';
 
 interface Question {
   id: string;
@@ -166,8 +167,18 @@ export const QuestionReview = ({ testId, answers, questions: providedQuestions, 
                   <span>View Passage: {passage.title || 'Reading Passage'}</span>
                 </button>
                 {expandedPassages.has(passage.id) && (
-                  <div className="mt-2 p-3 bg-muted/30 rounded-lg text-sm">
-                    <p className="whitespace-pre-wrap">{passage.content}</p>
+                  <div className="mt-2 p-3 bg-muted/30 rounded-lg text-sm space-y-2">
+                    {passage.media_url && (
+                      <MediaDisplay
+                        url={passage.media_url}
+                        type={passage.passage_type === 'image' ? 'image' : undefined}
+                        alt="Passage material"
+                        size="md"
+                      />
+                    )}
+                    {passage.content && (
+                      <p className="whitespace-pre-wrap">{passage.content}</p>
+                    )}
                   </div>
                 )}
               </div>
@@ -185,7 +196,7 @@ export const QuestionReview = ({ testId, answers, questions: providedQuestions, 
             )}
 
             {/* Question Text */}
-            <p className="mb-4 text-foreground">{question.question_text}</p>
+            <p className="mb-4 text-foreground">{renderQuestionText(question.question_text)}</p>
 
             {/* Options */}
             <div className="space-y-2">
@@ -217,7 +228,7 @@ export const QuestionReview = ({ testId, answers, questions: providedQuestions, 
                       }`}>
                         {label}
                       </span>
-                      <span className={isCorrectAnswer ? 'font-medium' : ''}>{option}</span>
+                      <span className={isCorrectAnswer ? 'font-medium' : ''}>{renderQuestionText(option)}</span>
                       {isCorrectAnswer && (
                         <Badge className="ml-auto bg-success text-success-foreground text-xs">Correct</Badge>
                       )}
