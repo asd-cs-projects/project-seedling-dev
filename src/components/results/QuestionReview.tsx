@@ -167,8 +167,18 @@ export const QuestionReview = ({ testId, answers, questions: providedQuestions, 
                   <span>View Passage: {passage.title || 'Reading Passage'}</span>
                 </button>
                 {expandedPassages.has(passage.id) && (
-                  <div className="mt-2 p-3 bg-muted/30 rounded-lg text-sm">
-                    <p className="whitespace-pre-wrap">{passage.content}</p>
+                  <div className="mt-2 p-3 bg-muted/30 rounded-lg text-sm space-y-2">
+                    {passage.media_url && (
+                      <MediaDisplay
+                        url={passage.media_url}
+                        type={passage.passage_type === 'image' ? 'image' : undefined}
+                        alt="Passage material"
+                        size="md"
+                      />
+                    )}
+                    {passage.content && (
+                      <p className="whitespace-pre-wrap">{passage.content}</p>
+                    )}
                   </div>
                 )}
               </div>
