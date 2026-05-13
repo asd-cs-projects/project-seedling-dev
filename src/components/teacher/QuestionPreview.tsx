@@ -2,6 +2,7 @@ import { Card } from '@/components/ui/card';
 import { Question } from '@/hooks/useQuestions';
 import { CheckCircle } from 'lucide-react';
 import { MediaDisplay } from '@/components/ui/media-display';
+import { renderQuestionText } from '@/lib/renderQuestionText';
 
 interface QuestionPreviewProps {
   question: Question;
@@ -29,7 +30,7 @@ export const QuestionPreview = ({ question, questionNumber }: QuestionPreviewPro
       <div className="mb-4">
         <p className="font-semibold text-foreground mb-2">
           Q{questionNumber}{question.sub_question_label && question.sub_question_label}.{' '}
-          {question.question_text}
+          {renderQuestionText(question.question_text)}
         </p>
         <p className="text-xs text-muted-foreground">
           [{question.marks} mark{question.marks !== 1 ? 's' : ''}]
@@ -69,7 +70,7 @@ export const QuestionPreview = ({ question, questionNumber }: QuestionPreviewPro
                       <span className="text-sm font-medium">{letter}</span>
                     )}
                   </div>
-                  <span className="text-foreground">{option}</span>
+                  <span className="text-foreground">{renderQuestionText(option)}</span>
                 </div>
               </div>
             );
