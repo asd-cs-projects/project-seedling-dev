@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { getStoredAnswer } from "@/lib/utils";
+import { renderQuestionText } from "@/lib/renderQuestionText";
 
 interface Question {
   id: string;
@@ -969,7 +970,7 @@ const AssessmentInterface = () => {
                   Question {currentQuestionIndex + 1} of {questions.length}
                 </p>
                 <h4 className="font-semibold text-lg text-foreground mb-2">
-                  {currentQuestion.question_text}
+                  {renderQuestionText(currentQuestion.question_text)}
                 </h4>
                 <p className="text-xs text-muted-foreground">
                   [{currentQuestion.marks} mark{currentQuestion.marks !== 1 ? 's' : ''}]
@@ -1008,7 +1009,7 @@ const AssessmentInterface = () => {
                             }`}>
                               <span className="text-sm font-medium">{letter}</span>
                             </div>
-                            <span className="text-foreground">{option}</span>
+                            <span className="text-foreground">{renderQuestionText(option)}</span>
                           </div>
                         </div>
                       );
