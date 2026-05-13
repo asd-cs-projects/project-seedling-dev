@@ -683,10 +683,11 @@ const AssessmentInterface = () => {
 
     const timeSpent = (testData?.duration_minutes * 60 || 3600) - timeRemaining;
 
-    // Server-side scoring — students never see correct_answer client-side
-    const { data: scoreData, error: scoreErr } = await (supabase as any).rpc('score_submission', {
+    // Server-side scoring across ALL non-practice questions the student attempted
+    // (every adaptive module — basic / easy / medium / hard — counts toward the
+    // final score). Practice answers are explicitly excluded server-side.
+    const { data: scoreData, error: scoreErr } = await (supabase as any).rpc('score_full_submission', {
       _test_id: testId,
-      _difficulty: assignedLevel,
       _answers: answers,
     });
     if (scoreErr) {
