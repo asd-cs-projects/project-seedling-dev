@@ -92,7 +92,7 @@ IMPORTANT:
       : '';
 
     // Try multiple models with retry+backoff to handle 429/503 (high demand)
-    const modelsToTry = ['gemini-2.5-flash-lite', 'gemini-2.5-flash', 'gemini-flash-latest'];
+    const modelsToTry = ['gemini-3.1-flash-lite', 'gemini-3.1-flash', 'gemini-flash-latest'];
     const requestBody = JSON.stringify({
       contents: [
         {
