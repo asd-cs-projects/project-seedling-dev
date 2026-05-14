@@ -8,7 +8,7 @@ const corsHeaders = {
 };
 
 const GEMINI_MODEL = 'gemini-3.1-flash-lite';
-const GEMINI_FALLBACK_MODELS = ['gemini-3.1-flash', 'gemini-flash-latest'];
+const GEMINI_FALLBACK_MODELS = ['gemini-3.1-flash', 'gemini-2.5-flash'];
 const DAILY_REGEN_HOURS = 24;
 
 class HttpError extends Error {
