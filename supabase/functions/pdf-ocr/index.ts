@@ -70,8 +70,8 @@ CRITICAL INSTRUCTIONS:
 
 Return the extracted text with all markers properly embedded.`;
 
-    // Use Google's Generative AI API directly with Gemini 2.5 Flash Lite (fast vision OCR)
-    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=' + apiKey, {
+    // Use Google's Generative AI API directly with Gemini 3.1 Flash Lite (fast vision OCR)
+    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=' + apiKey, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
