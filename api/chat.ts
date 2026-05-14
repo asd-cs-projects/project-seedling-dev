@@ -33,7 +33,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-3-flash-preview' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-3-flash-lite' });
 
     // Build the conversation for Gemini
     const chatHistory = messages.map((msg: { role: string; content: string }) => ({
