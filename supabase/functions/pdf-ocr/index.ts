@@ -22,14 +22,14 @@ serve(async (req) => {
       );
     }
 
-    // Use environment variable for API key (set in Vercel dashboard)
-    const apiKey = Deno.env.get('GEMINI_API_KEY');
+    const apiKey = Deno.env.get('OPENROUTER_API_KEY');
     if (!apiKey) {
       return new Response(
-        JSON.stringify({ error: 'Gemini API key not configured on server.' }),
+        JSON.stringify({ error: 'OPENROUTER_API_KEY not configured on server.' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+    const model = Deno.env.get('OPENROUTER_MODEL') || 'google/gemini-2.5-flash';
 
     // Enhanced prompt for better passage and table extraction
     const extractionPrompt = `You are an expert OCR system specialized in educational content extraction. Extract ALL content from this PDF with maximum accuracy.
@@ -70,43 +70,45 @@ CRITICAL INSTRUCTIONS:
 
 Return the extracted text with all markers properly embedded.`;
 
-    // Use Google's Generative AI API directly with Gemini 3.1 Flash Lite (fast vision OCR)
-    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=' + apiKey, {
+    // OpenRouter supports PDF input via the `file` content type (works with Gemini/Claude models)
+    const dataUrl = `data:${mimeType};base64,${pdfBase64}`;
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        contents: [
+        model,
+        temperature: 0.1,
+        max_tokens: 16000,
+        messages: [
           {
             role: 'user',
-            parts: [
-              { text: extractionPrompt },
+            content: [
+              { type: 'text', text: extractionPrompt },
               {
-                inlineData: {
-                  mimeType: mimeType,
-                  data: pdfBase64
-                }
-              }
-            ]
-          }
+                type: 'file',
+                file: {
+                  filename: 'document.pdf',
+                  file_data: dataUrl,
+                },
+              },
+            ],
+          },
         ],
-        generationConfig: {
-          maxOutputTokens: 16000,
-          temperature: 0.1,
-        },
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Gemini API error:', errorText);
-      throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
+      console.error('OpenRouter API error:', errorText);
+      throw new Error(`OpenRouter API error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
-    // Gemini API response format: candidates[0].content.parts[0].text
-    const extractedText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    // OpenRouter response: choices[0].message.content
+    const extractedText = data.choices?.[0]?.message?.content || '';
 
     // Parse out images, tables, and passages
     const images: string[] = [];
