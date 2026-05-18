@@ -1,6 +1,6 @@
 # Self-Hosting Deployment Guide
 
-This app is fully portable: **own Supabase project + Vercel frontend + direct Gemini API**.
+This app is fully portable: **own Supabase project + Vercel frontend + OpenRouter (any model)**.
 No Lovable Cloud or Lovable AI Gateway is required at runtime.
 
 ---
@@ -9,7 +9,7 @@ No Lovable Cloud or Lovable AI Gateway is required at runtime.
 
 - A [Supabase](https://supabase.com) account (free tier works)
 - A [Vercel](https://vercel.com) account
-- A [Google AI Studio](https://aistudio.google.com/apikey) account (for Gemini API key)
+- An [OpenRouter](https://openrouter.ai/keys) account (for the AI API key)
 - [Supabase CLI](https://supabase.com/docs/guides/cli) installed locally
 - [Node.js 18+](https://nodejs.org) and `npm` (or `bun`)
 
@@ -75,7 +75,8 @@ In the Supabase Dashboard → **Edge Functions → Secrets** (or `supabase secre
 
 | Secret | Value | Where to get it |
 |---|---|---|
-| `GEMINI_API_KEY` | `AIza…` | https://aistudio.google.com/apikey |
+| `OPENROUTER_API_KEY` | `sk-or-…` | https://openrouter.ai/keys |
+| `OPENROUTER_MODEL` | e.g. `google/gemini-2.5-flash` | https://openrouter.ai/models |
 | `ADMIN_SECRET_ID` | any string you choose | Used to gate admin signups. Pick a strong random value. |
 
 > **Note:** `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` are **auto-injected** by Supabase into every edge function — you do **not** need to set them manually.
@@ -83,7 +84,8 @@ In the Supabase Dashboard → **Edge Functions → Secrets** (or `supabase secre
 CLI alternative:
 
 ```bash
-supabase secrets set GEMINI_API_KEY=AIza...
+supabase secrets set OPENROUTER_API_KEY=sk-or-...
+supabase secrets set OPENROUTER_MODEL=google/gemini-2.5-flash
 supabase secrets set ADMIN_SECRET_ID=your-strong-random-string
 ```
 
@@ -103,6 +105,8 @@ To **edit** a secret later, just run `supabase secrets set NAME=newvalue` again,
 | `VITE_SUPABASE_URL` | `https://<your-project-ref>.supabase.co` |
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | the `anon` / publishable key from Supabase |
 | `VITE_SUPABASE_PROJECT_ID` | your project ref (e.g. `xxxx`) |
+| `OPENROUTER_API_KEY` | (only if you use `api/chat.ts`) `sk-or-…` |
+| `OPENROUTER_MODEL` | (only if you use `api/chat.ts`) e.g. `google/gemini-2.5-flash` |
 
 5. Click **Deploy**.
 
@@ -131,7 +135,8 @@ The migrations already create a private `test-files` bucket with RLS policies. N
 ### Backend (Supabase Edge Function Secrets)
 | Variable | Editable how |
 |---|---|
-| `GEMINI_API_KEY` | Supabase Dashboard → Edge Functions → Secrets, **or** `supabase secrets set` |
+| `OPENROUTER_API_KEY` | Supabase Dashboard → Edge Functions → Secrets, **or** `supabase secrets set` |
+| `OPENROUTER_MODEL` | same |
 | `ADMIN_SECRET_ID` | same as above |
 | `SUPABASE_URL` / `SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` | auto-injected, do not edit |
 
@@ -149,8 +154,8 @@ Create a local `.env` file (gitignored) with the three `VITE_*` vars pointing at
 
 ## Troubleshooting
 
-- **"GEMINI_API_KEY not configured"** in edge function logs → set the secret in Supabase Dashboard.
-- **AI calls return 429** → you've hit Gemini's free-tier rate limit. Upgrade in Google AI Studio or wait.
+- **"OPENROUTER_API_KEY not configured"** in edge function logs → set the secret in Supabase Dashboard.
+- **AI calls return 429** → you've hit OpenRouter's rate limit. Top up credits or switch models.
 - **Auth redirects to wrong URL** → fix Site URL / Redirect URLs in Supabase Auth settings.
 - **CORS errors** → confirm edge functions deployed successfully (`supabase functions list`).
 - **Edge function 401** → make sure the frontend is sending the Supabase JWT in the `Authorization: Bearer <token>` header (the SDK does this automatically when the user is logged in).

@@ -1,5 +1,4 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -21,10 +20,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+    const apiKey = process.env.OPENROUTER_API_KEY;
     if (!apiKey) {
-      return res.status(500).json({ error: 'Gemini API key not configured on server' });
+      return res.status(500).json({ error: 'OPENROUTER_API_KEY not configured on server' });
     }
+    const model = process.env.OPENROUTER_MODEL || 'google/gemini-2.5-flash';
 
     const { messages, systemPrompt } = req.body;
 
@@ -32,42 +32,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: 'Messages array is required' });
     }
 
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-3-flash-lite' });
-
-    // Build the conversation for Gemini
-    const chatHistory = messages.map((msg: { role: string; content: string }) => ({
-      role: msg.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: msg.content }],
-    }));
-
-    // Add system prompt as first user message if provided
-    if (systemPrompt) {
-      chatHistory.unshift({
-        role: 'user',
-        parts: [{ text: `System Instructions: ${systemPrompt}` }],
-      });
-      // Add acknowledgment from model
-      chatHistory.splice(1, 0, {
-        role: 'model',
-        parts: [{ text: 'I understand and will follow these instructions.' }],
-      });
+    const orMessages: Array<{ role: string; content: string }> = [];
+    if (systemPrompt) orMessages.push({ role: 'system', content: systemPrompt });
+    for (const msg of messages as Array<{ role: string; content: string }>) {
+      orMessages.push({ role: msg.role === 'assistant' ? 'assistant' : 'user', content: msg.content });
     }
 
-    // Get the last message for generation
-    const lastMessage = chatHistory.pop();
-    
-    const chat = model.startChat({
-      history: chatHistory,
-      generationConfig: {
-        maxOutputTokens: 8192,
-        temperature: 0.7,
+    const orRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
       },
+      body: JSON.stringify({
+        model,
+        temperature: 0.7,
+        max_tokens: 8192,
+        messages: orMessages,
+      }),
     });
 
-    const result = await chat.sendMessage(lastMessage?.parts[0]?.text || '');
-    const response = await result.response;
-    const text = response.text();
+    if (!orRes.ok) {
+      const errText = await orRes.text();
+      Object.entries(corsHeaders).forEach(([k, v]) => res.setHeader(k, v));
+      return res.status(orRes.status).json({ error: `OpenRouter error: ${errText}` });
+    }
+
+    const data = await orRes.json();
+    const text: string = data?.choices?.[0]?.message?.content ?? '';
 
     // Set CORS headers
     Object.entries(corsHeaders).forEach(([key, value]) => {
@@ -85,7 +77,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ],
     });
   } catch (error) {
-    console.error('Gemini API error:', error);
+    console.error('OpenRouter API error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     
     Object.entries(corsHeaders).forEach(([key, value]) => {

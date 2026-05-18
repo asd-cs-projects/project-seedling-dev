@@ -33,14 +33,14 @@ serve(async (req) => {
       );
     }
 
-    // Use environment variable for API key (set in Vercel dashboard)
-    const apiKey = Deno.env.get('GEMINI_API_KEY');
+    const apiKey = Deno.env.get('OPENROUTER_API_KEY');
     if (!apiKey) {
       return new Response(
-        JSON.stringify({ error: 'Gemini API key not configured on server.' }),
+        JSON.stringify({ error: 'OPENROUTER_API_KEY not configured on server.' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+    const model = Deno.env.get('OPENROUTER_MODEL') || 'google/gemini-2.5-flash';
 
     const systemPrompt = `You are an expert at parsing educational assessment questions from OCR text.
 Your task is to extract multiple-choice questions (MCQs) and properly link them to passages.
@@ -91,57 +91,45 @@ IMPORTANT:
       ? `\n\nDetected ${passages.length} passages:\n${passages.map((p: any) => `- "${p.title}"`).join('\n')}`
       : '';
 
-    // Try multiple models with retry+backoff to handle 429/503 (high demand)
-    const modelsToTry = ['gemini-3.1-flash-lite', 'gemini-3.1-flash', 'gemini-2.5-flash'];
     const requestBody = JSON.stringify({
-      contents: [
+      model,
+      temperature: 0.2,
+      max_tokens: 32000,
+      response_format: { type: 'json_object' },
+      messages: [
         {
           role: 'user',
-          parts: [
-            { text: systemPrompt + `\n\nParse the following OCR text and extract all MCQ questions with proper passage linking.${passageInfo}\n\nOCR Text:\n${extractedText}` }
-          ]
-        }
+          content: systemPrompt + `\n\nParse the following OCR text and extract all MCQ questions with proper passage linking.${passageInfo}\n\nOCR Text:\n${extractedText}`,
+        },
       ],
-      generationConfig: {
-        maxOutputTokens: 32000,
-        temperature: 0.2,
-        responseMimeType: 'application/json',
-        thinkingConfig: { thinkingBudget: 0 },
-      },
     });
 
     let response: Response | null = null;
     let lastErrorText = '';
-    outer: for (const model of modelsToTry) {
-      for (let attempt = 0; attempt < 3; attempt++) {
-        const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: requestBody,
-        });
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: requestBody,
+      });
 
-        if (r.ok) {
-          response = r;
-          break outer;
+      if (r.ok) { response = r; break; }
+
+      lastErrorText = await r.text();
+      console.error(`OpenRouter ${model} attempt ${attempt + 1} failed (${r.status}):`, lastErrorText.substring(0, 200));
+
+      if (r.status === 429 || r.status === 503 || r.status === 500) {
+        if (attempt < 2) {
+          const backoff = 1000 * Math.pow(2, attempt) + Math.random() * 500;
+          await new Promise(resolve => setTimeout(resolve, backoff));
+          continue;
         }
-
-        lastErrorText = await r.text();
-        console.error(`Gemini ${model} attempt ${attempt + 1} failed (${r.status}):`, lastErrorText.substring(0, 200));
-
-        // Retry on transient errors (429 rate limit, 503 overload, 500)
-        if (r.status === 429 || r.status === 503 || r.status === 500) {
-          if (attempt < 2) {
-            const backoff = 1000 * Math.pow(2, attempt) + Math.random() * 500;
-            await new Promise(resolve => setTimeout(resolve, backoff));
-            continue;
-          }
-          // Exhausted retries on this model — try next model
-          break;
-        }
-
-        // Non-retryable error — fail immediately
-        throw new Error(`Gemini API error: ${r.status} - ${lastErrorText}`);
+        break;
       }
+      throw new Error(`OpenRouter API error: ${r.status} - ${lastErrorText}`);
     }
 
     if (!response) {
@@ -152,8 +140,8 @@ IMPORTANT:
     }
 
     const data = await response.json();
-    // Gemini API response format: candidates[0].content.parts[0].text
-    const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    // OpenRouter response: choices[0].message.content
+    const content = data.choices?.[0]?.message?.content || '';
 
     // Extract JSON from the response (strip code fences if present)
     let parsed: { questions: ParsedQuestion[] };
