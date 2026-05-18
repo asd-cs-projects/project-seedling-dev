@@ -7,8 +7,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-const GEMINI_MODEL = 'gemini-3.1-flash-lite';
-const GEMINI_FALLBACK_MODELS = ['gemini-3.1-flash', 'gemini-2.5-flash'];
+const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const DEFAULT_OPENROUTER_MODEL = 'google/gemini-2.5-flash';
 const DAILY_REGEN_HOURS = 24;
 
 class HttpError extends Error {
@@ -234,7 +234,7 @@ const extractTextResponse = (parts: Array<Record<string, unknown>>) => {
 
 const extractJsonPayload = (rawText: string) => {
   const trimmed = rawText.trim();
-  if (!trimmed) throw new HttpError(502, 'Gemini returned an empty response');
+  if (!trimmed) throw new HttpError(502, 'AI returned an empty response');
   const candidates = [
     trimmed.match(/```json\s*([\s\S]*?)```/i)?.[1],
     trimmed.match(/```\s*([\s\S]*?)```/i)?.[1],
@@ -253,60 +253,51 @@ const extractJsonPayload = (rawText: string) => {
   throw new HttpError(502, `Could not parse AI response: ${trimmed.slice(0, 300)}`);
 };
 
-const callGemini = async (prompt: string, geminiApiKey: string, maxTokens = 4096) => {
-  const models = [GEMINI_MODEL, ...GEMINI_FALLBACK_MODELS];
+const callAI = async (prompt: string, apiKey: string, model: string, maxTokens = 4096) => {
   const requestBody = JSON.stringify({
-    contents: [{ parts: [{ text: prompt }] }],
-    generationConfig: {
-      temperature: 0.3,
-      maxOutputTokens: maxTokens,
-      responseMimeType: 'application/json',
-      thinkingConfig: { thinkingBudget: 0 },
-    },
+    model,
+    temperature: 0.3,
+    max_tokens: maxTokens,
+    response_format: { type: 'json_object' },
+    messages: [{ role: 'user', content: prompt }],
   });
 
   let lastErr = '';
   let lastStatus = 500;
-  for (const model of models) {
-    for (let attempt = 0; attempt < 3; attempt++) {
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiApiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: requestBody,
-        },
-      );
-      const rawBody = await response.text();
-      if (response.ok) {
-        try { return rawBody ? JSON.parse(rawBody) : null; } catch { return null; }
-      }
-      lastStatus = response.status;
-      lastErr = rawBody.slice(0, 300);
-      console.error(`Gemini ${model} attempt ${attempt + 1} failed (${response.status}):`, lastErr);
-      // Retry on transient errors only
-      if (response.status === 429 || response.status === 503 || response.status === 500) {
-        if (attempt < 2) {
-          const backoff = 800 * Math.pow(2, attempt) + Math.random() * 400;
-          await new Promise(r => setTimeout(r, backoff));
-          continue;
-        }
-        // Exhausted retries — try next model
-        break;
-      }
-      // Non-retryable
-      throw new HttpError(response.status, `Gemini error: ${lastErr}`);
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const response = await fetch(OPENROUTER_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: requestBody,
+    });
+    const rawBody = await response.text();
+    if (response.ok) {
+      try { return rawBody ? JSON.parse(rawBody) : null; } catch { return null; }
     }
+    lastStatus = response.status;
+    lastErr = rawBody.slice(0, 300);
+    console.error(`OpenRouter ${model} attempt ${attempt + 1} failed (${response.status}):`, lastErr);
+    if (response.status === 429 || response.status === 503 || response.status === 500) {
+      if (attempt < 2) {
+        const backoff = 800 * Math.pow(2, attempt) + Math.random() * 400;
+        await new Promise(r => setTimeout(r, backoff));
+        continue;
+      }
+      break;
+    }
+    throw new HttpError(response.status, `OpenRouter error: ${lastErr}`);
   }
-  throw new HttpError(lastStatus, `Gemini failed across all models: ${lastErr}`);
+  throw new HttpError(lastStatus, `OpenRouter failed: ${lastErr}`);
 };
 
-const parseGeminiJson = (geminiResponse: unknown) => {
-  const candidates = geminiResponse && typeof geminiResponse === 'object' && Array.isArray((geminiResponse as { candidates?: unknown[] }).candidates)
-    ? ((geminiResponse as { candidates: Array<{ content?: { parts?: Array<Record<string, unknown>> } }> }).candidates ?? [])
+const parseAIJson = (aiResponse: unknown) => {
+  const choices = aiResponse && typeof aiResponse === 'object' && Array.isArray((aiResponse as { choices?: unknown[] }).choices)
+    ? ((aiResponse as { choices: Array<{ message?: { content?: string } }> }).choices ?? [])
     : [];
-  const parts = Array.isArray(candidates[0]?.content?.parts) ? candidates[0].content.parts : [];
-  const text = extractTextResponse(parts);
+  const text = String(choices[0]?.message?.content ?? '').trim();
   return JSON.parse(extractJsonPayload(text));
 };
 
@@ -321,8 +312,9 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
-    const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
-    if (!geminiApiKey) throw new HttpError(500, 'GEMINI_API_KEY not configured');
+    const aiApiKey = Deno.env.get('OPENROUTER_API_KEY');
+    if (!aiApiKey) throw new HttpError(500, 'OPENROUTER_API_KEY not configured');
+    const aiModel = Deno.env.get('OPENROUTER_MODEL') || DEFAULT_OPENROUTER_MODEL;
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
