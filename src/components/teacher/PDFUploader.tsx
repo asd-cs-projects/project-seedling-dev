@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { MediaDisplay } from '@/components/ui/media-display';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useFileUpload } from '@/hooks/useFileUpload';
 import { useToast } from '@/hooks/use-toast';
@@ -564,6 +565,11 @@ export const PDFUploader = ({ testId, onPDFsChange, onQuestionsCreated }: PDFUpl
                               <Loader2 className="h-3 w-3 animate-spin" />
                             ) : (passageMedia[passageKey] ? 'Replace' : 'Upload')}
                           </Button>
+                        </div>
+                      )}
+                      {passageKey && passageMedia[passageKey] && (
+                        <div className="mb-3">
+                          <MediaDisplay url={passageMedia[passageKey]} type="image" alt="Module material" size="md" />
                         </div>
                       )}
                       <div className="space-y-2">

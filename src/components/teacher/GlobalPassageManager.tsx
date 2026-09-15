@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
+import { MediaDisplay } from '@/components/ui/media-display';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -476,6 +477,9 @@ export const GlobalPassageManager = ({ testId, onChange, openSignal, initialType
                   <Save className="h-4 w-4 mr-1" /> {editingId ? 'Save Changes' : 'Save Material'}
                 </Button>
               </div>
+              {form.media_url && (
+                <MediaDisplay url={form.media_url} type="image" alt="Material image" size="md" />
+              )}
             </div>
           )}
 
