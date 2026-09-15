@@ -115,7 +115,7 @@ export const GlobalPassageManager = ({ testId, onChange, openSignal, initialType
   const loadAll = async () => {
     const [{ data: pData }, { data: qData }] = await Promise.all([
       supabase.from('passages').select('*').eq('test_id', testId).order('passage_code'),
-      supabase.from('questions').select('id, question_text, passage_id, order_index, difficulty').eq('test_id', testId).order('order_index'),
+      supabase.from('questions').select('id, question_text, passage_id, order_index, difficulty').eq('test_id', testId).order('order_index').order('created_at', { ascending: true }),
     ]);
     setPassages((pData as Passage[]) || []);
     setQuestions((qData as QuestionLite[]) || []);
@@ -202,12 +202,14 @@ export const GlobalPassageManager = ({ testId, onChange, openSignal, initialType
         toast({ title: 'Created', description: 'Material added' });
       }
       const wasImage = form.passage_type === 'image' && !!form.media_url;
+      const wasNew = !editingId;
       resetForm();
       await loadAll();
       onChange?.();
-      // Auto-open the question-mapping screen for image materials so the
+      // Only for brand-new image materials: open the question-mapping screen so the
       // teacher can immediately attach the image to one or more questions.
-      if (wasImage && savedId) {
+      // Edits just close the form.
+      if (wasNew && wasImage && savedId) {
         const passage = (await supabase.from('passages').select('*').eq('id', savedId).maybeSingle()).data as Passage | null;
         if (passage) openMapping(passage);
       }

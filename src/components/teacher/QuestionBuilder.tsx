@@ -65,7 +65,8 @@ export const QuestionBuilder = ({ testId, onQuestionsChange }: QuestionBuilderPr
       .from('questions')
       .select('*')
       .eq('test_id', testId)
-      .order('order_index');
+      .order('order_index')
+      .order('created_at', { ascending: true });
     
     if (error) {
       console.error('Error loading questions:', error);
