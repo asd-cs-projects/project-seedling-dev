@@ -115,7 +115,7 @@ export const GlobalPassageManager = ({ testId, onChange, openSignal, initialType
   const loadAll = async () => {
     const [{ data: pData }, { data: qData }] = await Promise.all([
       supabase.from('passages').select('*').eq('test_id', testId).order('passage_code'),
-      supabase.from('questions').select('id, question_text, passage_id, order_index, difficulty').eq('test_id', testId).order('order_index'),
+      supabase.from('questions').select('id, question_text, passage_id, order_index, difficulty').eq('test_id', testId).order('order_index').order('created_at', { ascending: true }),
     ]);
     setPassages((pData as Passage[]) || []);
     setQuestions((qData as QuestionLite[]) || []);

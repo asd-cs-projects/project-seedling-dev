@@ -207,13 +207,17 @@ export const PDFUploader = ({ testId, onPDFsChange, onQuestionsCreated }: PDFUpl
         }
       }
 
-      // Get count of existing questions for this test
-      const { count: existingCount } = await supabase
+      // Continue numbering after the highest existing order_index so a second
+      // upload never collides with (and jumbles into) the first upload's range.
+      const { data: lastQ } = await supabase
         .from('questions')
-        .select('*', { count: 'exact', head: true })
-        .eq('test_id', testId);
+        .select('order_index')
+        .eq('test_id', testId)
+        .order('order_index', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-      let orderOffset = existingCount || 0;
+      let orderOffset = ((lastQ?.order_index ?? -1) as number) + 1;
 
       // Count questions by difficulty
       const difficultyCounts: Record<string, number> = { practice: 0, basic: 0, easy: 0, medium: 0, hard: 0 };

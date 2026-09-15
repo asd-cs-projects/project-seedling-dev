@@ -122,7 +122,8 @@ export const TestEditor = ({ testId, onClose }: TestEditorProps) => {
         .from('questions')
         .select('*')
         .eq('test_id', testId)
-        .order('order_index', { ascending: true });
+        .order('order_index', { ascending: true })
+        .order('created_at', { ascending: true });
       
       if (questionsError) throw questionsError;
       
