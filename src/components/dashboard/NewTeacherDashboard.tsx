@@ -1,14 +1,11 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from "recharts";
-import { Upload, Users, TrendingUp, BarChart3, LogOut, Copy, PlusCircle, FolderOpen, ChartLine, ArrowLeft, Trash2, Edit, Eye, User, Radio, School } from "lucide-react";
+import { Upload, Users, LogOut, Copy, PlusCircle, FolderOpen, ChartLine, ArrowLeft, Trash2, Edit, User, Radio, School, LayoutDashboard, MoreHorizontal } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Label } from "@/components/ui/label";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { CreateTestWizard } from "@/components/teacher/CreateTestWizard";
 import { TestEditor } from "@/components/teacher/TestEditor";
 import { TestResultsPage } from "@/components/teacher/TestResultsPage";
@@ -223,8 +220,6 @@ const NewTeacherDashboard = () => {
     };
   }, [allResults, studentsById]);
 
-  const COLORS = ['hsl(var(--primary))', 'hsl(var(--secondary))', 'hsl(var(--accent))', 'hsl(var(--destructive))'];
-
   // Render section content
   const renderSection = () => {
     switch (activeSection) {
@@ -240,7 +235,7 @@ const NewTeacherDashboard = () => {
             fetchTests();
           }} />;
         }
-        return <Card className="cloud-bubble p-6 animate-fade-in">
+        return <section className="animate-fade-in">
             <div className="flex items-start justify-between mb-4 gap-4 flex-wrap">
               <div>
                 <h3 className="text-xl font-semibold mb-1">My Tests</h3>
@@ -257,7 +252,7 @@ const NewTeacherDashboard = () => {
 
             <div className="space-y-4">
                {tests.length === 0 ? (
-                 <div className="text-center py-16 border border-dashed border-border rounded-2xl">
+                  <div className="text-center py-16 border border-dashed border-border rounded-lg bg-card/40">
                    <FolderOpen className="h-10 w-10 mx-auto text-muted-foreground/50 mb-3" />
                    <p className="text-muted-foreground">No tests created yet.</p>
                    <p className="text-xs text-muted-foreground mt-1">Click "Create New Test" to get started.</p>
@@ -278,7 +273,7 @@ const NewTeacherDashboard = () => {
                  return (
                    <div
                      key={test.id}
-                     className="p-5 bg-card border border-border/60 rounded-2xl hover:border-primary/40 hover:shadow-md transition-all"
+                      className="p-5 bg-card border border-border/60 rounded-lg hover:border-primary/40 hover:shadow-sm transition-all"
                    >
                      {/* Header row */}
                      <div className="flex items-start justify-between gap-4 mb-4">
@@ -306,11 +301,11 @@ const NewTeacherDashboard = () => {
                          </p>
                        </div>
                        <div className="flex items-center gap-2 shrink-0">
-                         <div className="text-right px-3 py-1.5 rounded-xl bg-primary/5 border border-primary/10">
+                          <div className="text-right px-3 py-1.5 rounded-md bg-primary/5 border border-primary/10">
                            <p className="text-base font-bold text-primary font-mono leading-tight">{test.test_code}</p>
                            <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Test Code</p>
                          </div>
-                         <Button variant="ghost" size="icon" onClick={() => copyTestCode(test.test_code)} className="rounded-xl" title="Copy test code">
+                          <Button variant="ghost" size="icon" onClick={() => copyTestCode(test.test_code)} className="rounded-md" title="Copy test code" aria-label={`Copy code for ${test.title}`}>
                            <Copy className="h-4 w-4" />
                          </Button>
                        </div>
@@ -318,17 +313,17 @@ const NewTeacherDashboard = () => {
 
                      {/* Stats strip */}
                      <div className="grid grid-cols-3 gap-3 mb-4">
-                       <div className="p-3 bg-muted/40 rounded-xl">
+                        <div className="p-3 bg-muted/40 rounded-md">
                          <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Avg Score</p>
                          <p className="text-lg font-semibold text-foreground">
                            {avgTestScore !== null ? `${avgTestScore}%` : '—'}
                          </p>
                        </div>
-                       <div className="p-3 bg-muted/40 rounded-xl">
+                        <div className="p-3 bg-muted/40 rounded-md">
                          <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Attempts</p>
                          <p className="text-lg font-semibold text-foreground">{attemptCount}</p>
                        </div>
-                       <div className="p-3 bg-muted/40 rounded-xl">
+                        <div className="p-3 bg-muted/40 rounded-md">
                          <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Avg Time</p>
                          <p className="text-lg font-semibold text-foreground">
                            {attemptCount > 0 ? `${avgTimeMinutes} min` : '—'}
@@ -337,46 +332,50 @@ const NewTeacherDashboard = () => {
                      </div>
 
                      {/* Action row */}
-                     <div className="flex items-center justify-end gap-2 flex-wrap">
+                      <div className="flex items-center justify-end gap-2">
                        <Button
-                         variant="outline"
                          size="sm"
                          onClick={() => setEditingQuestionsTestId(test.id)}
-                         className="rounded-xl gap-2"
+                          className="rounded-md gap-2"
                        >
                          <Edit className="h-4 w-4" />
                          Edit
                        </Button>
-                       <Button
-                         variant="outline"
-                         size="sm"
-                         disabled={!isHosted}
-                         onClick={() => {
-                           setSelectedTestId(test.id);
-                           setSelectedTestTitle(test.title);
-                           setActiveSection("test-results");
-                         }}
-                         className="rounded-xl gap-2"
-                         title={isHosted ? 'View results & analytics' : 'No attempts yet'}
-                       >
-                         <ChartLine className="h-4 w-4" />
-                         View Results
-                       </Button>
-                       <Button
-                         variant="outline"
-                         size="sm"
-                         onClick={() => handleDeleteTest(test.id)}
-                         className="rounded-xl gap-2 text-destructive hover:text-destructive"
-                       >
-                         <Trash2 className="h-4 w-4" />
-                         Delete
-                       </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="icon" className="h-9 w-9 rounded-md" aria-label={`More actions for ${test.title}`}>
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-44">
+                            <DropdownMenuItem
+                              disabled={!isHosted}
+                              onClick={() => {
+                                setSelectedTestId(test.id);
+                                setSelectedTestTitle(test.title);
+                                setActiveSection("test-results");
+                              }}
+                            >
+                              <ChartLine className="mr-2 h-4 w-4" />
+                              View results
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => copyTestCode(test.test_code)}>
+                              <Copy className="mr-2 h-4 w-4" />
+                              Copy test code
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => handleDeleteTest(test.id)} className="text-destructive focus:text-destructive">
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete test
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                      </div>
                    </div>
                  );
                })}
             </div>
-          </Card>;
+           </section>;
       // analytics merged into "tests" tab — no standalone analytics view
       case "students":
         // Group results by student
@@ -399,22 +398,32 @@ const NewTeacherDashboard = () => {
           lastTest: data.results.sort((a, b) => new Date(b.completed_at).getTime() - new Date(a.completed_at).getTime())[0]
         }));
 
-        return <Card className="cloud-bubble p-6 animate-fade-in">
+        return <section className="animate-fade-in">
             <h3 className="text-xl font-semibold mb-2">Students</h3>
             <p className="text-muted-foreground text-sm mb-6">View detailed individual student performance</p>
             <div className="space-y-4">
               {studentsList.length === 0 ? <p className="text-muted-foreground text-center py-12">No student results yet</p> : studentsList.map((studentData, idx) => {
               return <div 
                 key={idx} 
-                className="p-5 bg-muted/30 rounded-2xl hover:bg-muted/50 transition-colors cursor-pointer"
+                 className="p-5 bg-card border border-border/60 rounded-lg hover:border-primary/40 hover:bg-muted/20 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                 role="button"
+                 tabIndex={0}
                 onClick={() => {
                   setSelectedStudentId(studentData.id);
                   setSelectedStudentName(studentData.name);
                   setActiveSection("student-detail");
-                }}
+                 }}
+                 onKeyDown={(event) => {
+                   if (event.key === 'Enter' || event.key === ' ') {
+                     event.preventDefault();
+                     setSelectedStudentId(studentData.id);
+                     setSelectedStudentName(studentData.name);
+                     setActiveSection("student-detail");
+                   }
+                 }}
               >
                       <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-4">
+                         <div className="flex items-center gap-4">
                           <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
                             <User className="h-6 w-6 text-primary" />
                           </div>
@@ -430,26 +439,12 @@ const NewTeacherDashboard = () => {
                             <p className="text-2xl font-bold text-primary">{studentData.avgScore}%</p>
                             <p className="text-xs text-muted-foreground">Avg Score</p>
                           </div>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            className="rounded-xl gap-2"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedStudentId(studentData.id);
-                              setSelectedStudentName(studentData.name);
-                              setActiveSection("student-detail");
-                            }}
-                          >
-                            <Eye className="h-4 w-4" />
-                            Details
-                          </Button>
                         </div>
                       </div>
                     </div>;
             })}
             </div>
-          </Card>;
+          </section>;
       case "test-results":
         if (!selectedTestId) return null;
         return <TestResultsPage 
@@ -473,52 +468,91 @@ const NewTeacherDashboard = () => {
     }
   };
 
-  return <div className="min-h-screen bg-gradient-to-br from-background via-accent/20 to-primary/10">
-      <div className="container mx-auto p-6 max-w-6xl">
+  const sectionLabels: Record<ActiveSection, string> = {
+    home: "Overview",
+    create: "Create Test",
+    tests: "My Tests",
+    students: "Students",
+    classes: "Classes",
+    "test-results": "Test Results",
+    "student-detail": "Student Details",
+    monitoring: "Live Monitoring",
+  };
+
+  const navigationItems = [
+    { id: "home" as const, label: "Overview", icon: LayoutDashboard },
+    { id: "tests" as const, label: "Tests", icon: FolderOpen },
+    { id: "students" as const, label: "Students", icon: Users },
+    { id: "classes" as const, label: "Classes", icon: School },
+    { id: "monitoring" as const, label: "Live", icon: Radio },
+  ];
+
+  const showPrimaryNavigation = !["create", "test-results", "student-detail"].includes(activeSection) && !editingQuestionsTestId;
+  const showGlobalBack = activeSection === "create" || Boolean(editingQuestionsTestId);
+
+  return <div className="min-h-screen bg-background">
+      <div className="container mx-auto px-4 py-5 md:px-6 md:py-7 max-w-6xl">
         {/* Header */}
-        <div className="flex justify-between items-center mb-8">
+        <header className="flex justify-between items-center mb-5 border-b border-border pb-5">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-full overflow-hidden shadow-md border-2 border-primary/20">
               <img src={sckoolLogo} alt="Sckool Logo" className="w-full h-full object-cover" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-foreground">
-                {activeSection === "home" ? "Teacher Dashboard" : 
-                 activeSection === "create" ? "Create Test" : 
-                 activeSection === "tests" ? "My Tests" : 
-                 activeSection === "test-results" ? "Test Results" :
-                 activeSection === "student-detail" ? "Student Details" :
-                 activeSection === "classes" ? "Classes" :
-                 activeSection === "monitoring" ? "Live Monitoring" :
-                 "Students"}
-              </h1>
-              <p className="text-muted-foreground">Welcome, {profile?.full_name || 'Teacher'}!</p>
+              <h1 className="text-2xl font-bold text-foreground">{sectionLabels[activeSection]}</h1>
+              <p className="text-sm text-muted-foreground">{profile?.full_name || 'Teacher'}</p>
             </div>
           </div>
-          <Button variant="outline" onClick={handleLogout} className="rounded-xl">
-            <LogOut className="h-4 w-4 mr-2" />
-            Logout
+          <Button variant="ghost" size="icon" onClick={handleLogout} className="rounded-md" aria-label="Log out" title="Log out">
+            <LogOut className="h-4 w-4" />
           </Button>
-        </div>
+        </header>
+
+        {showPrimaryNavigation && (
+          <nav className="mb-8 flex items-center gap-1 overflow-x-auto border-b border-border" aria-label="Teacher workspace">
+            {navigationItems.map(({ id, label, icon: Icon }) => (
+              <Button
+                key={id}
+                variant="ghost"
+                size="sm"
+                onClick={() => setActiveSection(id)}
+                className={`relative shrink-0 rounded-none border-b-2 px-3 pb-3 pt-2 ${activeSection === id ? 'border-primary text-primary bg-primary/5' : 'border-transparent text-muted-foreground'}`}
+              >
+                <Icon className="h-4 w-4" />
+                {label}
+                {id === 'monitoring' && activeSessionsCount > 0 && (
+                  <Badge className="ml-1 h-5 min-w-5 justify-center rounded-full px-1.5 text-[10px]">{activeSessionsCount}</Badge>
+                )}
+              </Button>
+            ))}
+            <div className="ml-auto pl-3 pb-2">
+              <Button size="sm" onClick={() => setActiveSection("create")} className="rounded-md gap-2">
+                <PlusCircle className="h-4 w-4" />
+                Create test
+              </Button>
+            </div>
+          </nav>
+        )}
 
         {/* Back button when in a section */}
-        {activeSection !== "home" && <button onClick={() => {
-          if (activeSection === "create") {
-            setActiveSection("tests");
+        {showGlobalBack && <Button variant="ghost" size="sm" onClick={() => {
+          if (editingQuestionsTestId) {
+            setEditingQuestionsTestId(null);
+            fetchTests();
           } else {
-            setActiveSection("home");
+            setActiveSection("tests");
           }
-        }} className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-6">
+        }} className="mb-5 -ml-2 rounded-md text-muted-foreground">
             <ArrowLeft className="h-4 w-4" />
-            <span className="text-sm">Back to {activeSection === "create" ? "My Tests" : "Dashboard"}</span>
-          </button>}
+            Back to My Tests
+          </Button>}
 
         {activeSection === "home" ? <>
             {/* Quick Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-10">
-              <Card className="cloud-bubble p-5">
+            <div className="grid grid-cols-1 divide-y divide-border rounded-lg border border-border bg-card sm:grid-cols-3 sm:divide-x sm:divide-y-0 mb-8">
+              <div className="p-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <div className="w-9 h-9 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
                     <Upload className="h-5 w-5 text-primary" />
                   </div>
                   <div>
@@ -526,10 +560,10 @@ const NewTeacherDashboard = () => {
                     <p className="text-2xl font-bold">{tests.length}</p>
                   </div>
                 </div>
-              </Card>
-              <Card className="cloud-bubble p-5">
+              </div>
+              <div className="p-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-secondary/10 flex items-center justify-center flex-shrink-0">
+                  <div className="w-9 h-9 rounded-md bg-secondary/10 flex items-center justify-center flex-shrink-0">
                     <Users className="h-5 w-5 text-secondary" />
                   </div>
                   <div>
@@ -537,10 +571,10 @@ const NewTeacherDashboard = () => {
                     <p className="text-2xl font-bold">{studentCount}</p>
                   </div>
                 </div>
-              </Card>
-              <Card className="cloud-bubble p-5">
+              </div>
+              <div className="p-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-success/10 flex items-center justify-center flex-shrink-0">
+                  <div className="w-9 h-9 rounded-md bg-success/10 flex items-center justify-center flex-shrink-0">
                     <Radio className="h-5 w-5 text-success" />
                   </div>
                   <div>
@@ -548,39 +582,32 @@ const NewTeacherDashboard = () => {
                     <p className="text-2xl font-bold">{activeSessionsCount}</p>
                   </div>
                 </div>
-              </Card>
+              </div>
             </div>
 
-            {/* Navigation Bubbles */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-              <div onClick={() => setActiveSection("tests")} className="nav-bubble group cursor-pointer">
-                <FolderOpen className="h-10 w-10 mb-3 text-primary group-hover:scale-110 transition-transform" />
-                <p className="font-semibold">My Tests</p>
-                <p className="text-xs text-muted-foreground mt-1">Create, manage & view analytics</p>
+            <div className="flex items-end justify-between gap-4 mb-4">
+              <div>
+                <h2 className="text-xl font-semibold">Recent tests</h2>
+                <p className="text-sm text-muted-foreground">Continue editing or review your latest assessments.</p>
               </div>
-
-              <div onClick={() => setActiveSection("students")} className="nav-bubble group cursor-pointer">
-                <Users className="h-10 w-10 mb-3 text-primary group-hover:scale-110 transition-transform" />
-                <p className="font-semibold">Students</p>
-                <p className="text-xs text-muted-foreground mt-1">Individual Student Performance</p>
-              </div>
-
-              <div onClick={() => setActiveSection("classes")} className="nav-bubble group cursor-pointer">
-                <School className="h-10 w-10 mb-3 text-primary group-hover:scale-110 transition-transform" />
-                <p className="font-semibold">Classes</p>
-                <p className="text-xs text-muted-foreground mt-1">Per-class tests &amp; summaries</p>
-              </div>
-
-              <div onClick={() => setActiveSection("monitoring")} className="nav-bubble group cursor-pointer relative">
-                <Radio className="h-10 w-10 mb-3 text-success group-hover:scale-110 transition-transform" />
-                {activeSessionsCount > 0 && (
-                  <div className="absolute top-2 right-2 w-6 h-6 bg-success text-success-foreground rounded-full flex items-center justify-center text-xs font-bold animate-pulse">
-                    {activeSessionsCount}
+              <Button variant="outline" size="sm" onClick={() => setActiveSection("tests")} className="rounded-md">View all</Button>
+            </div>
+            <div className="divide-y divide-border rounded-lg border border-border bg-card">
+              {tests.length === 0 ? (
+                <div className="py-12 text-center text-sm text-muted-foreground">No tests created yet.</div>
+              ) : tests.slice(0, 5).map(test => (
+                <button
+                  key={test.id}
+                  onClick={() => { setActiveSection("tests"); setEditingQuestionsTestId(test.id); }}
+                  className="flex w-full items-center justify-between gap-4 p-4 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{test.title}</p>
+                    <p className="text-xs text-muted-foreground">{test.subject} · {questionCounts[test.id] ?? 0} questions</p>
                   </div>
-                )}
-                <p className="font-semibold">Live Monitoring</p>
-                <p className="text-xs text-muted-foreground mt-1">Watch Active Test Sessions</p>
-              </div>
+                  <span className="shrink-0 font-mono text-sm text-primary">{test.test_code}</span>
+                </button>
+              ))}
             </div>
           </> : renderSection()}
       </div>
